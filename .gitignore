@@ -1,0 +1,9 @@
+venv/
+*.pyc
+__pycache__/
+.env
+.DS_Store
+*.pkl
+*.faiss
+*.zip
+docling_models/
