@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Pipeline — CLI 命令 & Config 配置详解</title>
+<style>
+  :root {
+    --bg: #1a1b26;
+    --card: #24283b;
+    --text: #c0caf5;
+    --accent: #7aa2f7;
+    --green: #9ece6a;
+    --orange: #e0af68;
+    --red: #f7768e;
+    --purple: #bb9af7;
+    --cyan: #7dcfff;
+    --border: #3b4261;
+    --code-bg: #1f2335;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    padding: 40px 20px;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  /* ===== 标题 ===== */
+  h1 {
+    font-size: 2.2em;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle { text-align: center; color: #565f89; margin-bottom: 48px; font-size: 0.95em; }
+
+  h2 {
+    font-size: 1.5em;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 8px;
+    margin: 48px 0 20px;
+  }
+  h3 {
+    font-size: 1.2em;
+    color: var(--purple);
+    margin: 28px 0 12px;
+  }
+  h4 {
+    color: var(--orange);
+    margin: 20px 0 8px;
+    font-size: 1.05em;
+  }
+
+  p { margin: 12px 0; }
+
+  /* ===== 卡片 ===== */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+  .card.green  { border-left: 4px solid var(--green); }
+  .card.blue   { border-left: 4px solid var(--accent); }
+  .card.orange { border-left: 4px solid var(--orange); }
+  .card.red    { border-left: 4px solid var(--red); }
+  .card.purple { border-left: 4px solid var(--purple); }
+
+  /* ===== 代码块 ===== */
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--code-bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--cyan);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 0.88em;
+    line-height: 1.7;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+  }
+
+  /* 语法高亮 */
+  .kw  { color: var(--purple); }  /* 关键字 */
+  .fn  { color: var(--accent); }  /* 函数名 */
+  .str { color: var(--green); }   /* 字符串 */
+  .cm  { color: #565f89; }        /* 注释 */
+  .dec { color: var(--orange); }  /* 装饰器 */
+  .num { color: var(--orange); }  /* 数字 */
+  .op  { color: var(--cyan); }    /* 操作符 */
+
+  /* ===== 表格 ===== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--code-bg);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:hover { background: rgba(122, 162, 247, 0.05); }
+
+  /* ===== 流程图 ===== */
+  .flow {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85em;
+    line-height: 2;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* ===== 提示块 ===== */
+  .tip {
+    background: rgba(122, 162, 247, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .tip::before { content: '💡 '; }
+  .warn {
+    background: rgba(224, 175, 104, 0.1);
+    border: 1px solid var(--orange);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .warn::before { content: '⚠️ '; }
+
+  /* ===== 列表 ===== */
+  ul, ol { margin: 8px 0 8px 24px; }
+  li { margin: 6px 0; }
+
+  /* ===== 标签 ===== */
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.82em;
+    font-weight: 600;
+    margin: 0 2px;
+  }
+  .tag-true  { background: rgba(158, 206, 106, 0.2); color: var(--green); }
+  .tag-false { background: rgba(247, 118, 142, 0.2); color: var(--red); }
+  .tag-cmd   { background: rgba(122, 162, 247, 0.2); color: var(--accent); }
+
+  strong { color: #e2e4f0; }
+  a { color: var(--accent); }
+
+  /* ===== 导航 ===== */
+  nav { position: sticky; top: 0; background: var(--bg); padding: 12px 0; border-bottom: 1px solid var(--border); margin-bottom: 32px; z-index: 10; }
+  nav a { margin-right: 20px; font-size: 0.92em; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🚀 RAG Pipeline — CLI & Config 详解</h1>
+<p class="subtitle">从零理解 Click 命令行 和 RunConfig 配置系统 · 2026-06-26</p>
+
+<nav>
+  <a href="#click">Click 基础</a>
+  <a href="#commands">五条命令</a>
+  <a href="#config">Config 系统</a>
+  <a href="#flow">完整流程图</a>
+  <a href="#faq">常见问题</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="click">一、Click 是什么？为什么能敲命令？</h2>
+
+<h3>1.1 核心三件套</h3>
+
+<div class="card blue">
+  <p>整个命令行系统由 <strong>Click</strong> 库提供。三个核心装饰器构成了命令体系：</p>
+  <table>
+    <tr><th>装饰器</th><th>作用</th><th>比喻</th></tr>
+    <tr>
+      <td><code>@click.group()</code></td>
+      <td>创建一个"命令组"，相当于遥控器底座</td>
+      <td>🎮 遥控器外壳</td>
+    </tr>
+    <tr>
+      <td><code>@cli.command()</code></td>
+      <td>把函数注册为子命令，相当于遥控器上的按钮</td>
+      <td>🔘 遥控器按钮</td>
+    </tr>
+    <tr>
+      <td><code>@click.option(...)</code></td>
+      <td>给命令添加可选参数</td>
+      <td>🎚️ 按钮旁的调节旋钮</td>
+    </tr>
+  </table>
+</div>
+
+<h3>1.2 从代码到命令行的映射</h3>
+
+<pre><code><span class="kw">import</span> click
+
+<span class="dec">@click.group</span>()                          <span class="cm"># ① 造遥控器</span>
+<span class="kw">def</span> <span class="fn">cli</span>():
+    <span class="kw">pass</span>
+
+<span class="dec">@cli.command</span>()                          <span class="cm"># ② 装按钮：download-models</span>
+<span class="kw">def</span> <span class="fn">download_models</span>():
+    <span class="cm">"""按下去就执行这个函数"""</span>
+    click.echo(<span class="str">"Downloading..."</span>)
+
+<span class="dec">@cli.command</span>()                          <span class="cm"># ② 装按钮：parse-pdfs</span>
+<span class="kw">def</span> <span class="fn">parse_pdfs</span>():
+    <span class="cm">"""按下去就执行这个函数"""</span>
+    click.echo(<span class="str">"Parsing..."</span>)
+
+<span class="kw">if</span> __name__ <span class="op">==</span> <span class="str">'__main__'</span>:
+    cli()                                 <span class="cm"># ③ 按下启动键，等待用户输入</span></code></pre>
+
+<div class="card green">
+  <h4>命名规则：下划线 → 短横线</h4>
+  <p>Click 会自动把 Python 函数名里的下划线 <code>_</code> 转成命令行里的短横线 <code>-</code>：</p>
+  <table>
+    <tr><th>Python 函数名</th><th>→</th><th>命令行命令</th></tr>
+    <tr><td><code>download_models</code></td><td>→</td><td><code>python main.py <strong>download-models</strong></code></td></tr>
+    <tr><td><code>parse_pdfs</code></td><td>→</td><td><code>python main.py <strong>parse-pdfs</strong></code></td></tr>
+    <tr><td><code>process_questions</code></td><td>→</td><td><code>python main.py <strong>process-questions</strong></code></td></tr>
+  </table>
+</div>
+
+<h3>1.3 <code>@click.option</code> 详解</h3>
+
+<div class="card orange">
+  <h4>基本形态：数值/字符串参数</h4>
+  <pre><code><span class="dec">@click.option</span>(<span class="str">'--chunk-size'</span>, default=<span class="num">2</span>, help=<span class="str">'...'</span>)
+<span class="kw">def</span> <span class="fn">parse_pdfs</span>(chunk_size):   <span class="cm"># 参数自动传入</span>
+    ...</code></pre>
+  <table>
+    <tr><th>命令行写法</th><th>函数收到</th></tr>
+    <tr><td>（不写）</td><td><code>chunk_size = 2</code></td></tr>
+    <tr><td><code>--chunk-size 5</code></td><td><code>chunk_size = 5</code></td></tr>
+    <tr><td><code>--chunk-size 100</code></td><td><code>chunk_size = 100</code></td></tr>
+  </table>
+</div>
+
+<div class="card orange">
+  <h4>特殊形态：布尔开关 <code>--xxx/--yyy</code></h4>
+  <pre><code><span class="dec">@click.option</span>(<span class="str">'--parallel/--sequential'</span>, default=True)
+<span class="kw">def</span> <span class="fn">parse_pdfs</span>(parallel):    <span class="cm"># True 或 False</span>
+    ...</code></pre>
+  <table>
+    <tr><th>命令行写法</th><th>函数收到</th><th>含义</th></tr>
+    <tr><td><code>--parallel</code></td><td><code>parallel = True</code></td><td>走并行模式</td></tr>
+    <tr><td><code>--sequential</code></td><td><code>parallel = False</code></td><td>走串行模式</td></tr>
+    <tr><td>（不写）</td><td><code>parallel = True</code>（默认值）</td><td>走并行模式</td></tr>
+  </table>
+  <div class="warn">
+    <strong>关键规则</strong>：<code>--xxx/--yyy</code> 中，<strong>第一个名字对应 True</strong>，<strong>第二个名字对应 False</strong>。
+    两者互斥——不能同时写 <code>--parallel --sequential</code>。<br>
+    就像电灯开关：<code>--parallel</code> 是「开」，<code>--sequential</code> 是「关」。
+  </div>
+</div>
+
+<div class="card orange">
+  <h4>枚举限制：<code>click.Choice</code></h4>
+  <pre><code><span class="dec">@click.option</span>(<span class="str">'--config'</span>, type=click.Choice([<span class="str">'base'</span>, <span class="str">'pdr'</span>, <span class="str">'max'</span>]), default=<span class="str">'base'</span>)
+<span class="kw">def</span> <span class="fn">process_questions</span>(config):
+    ...</code></pre>
+  <table>
+    <tr><th>命令行写法</th><th>结果</th></tr>
+    <tr><td><code>--config base</code></td><td>✅ 通过，<code>config = "base"</code></td></tr>
+    <tr><td><code>--config max</code></td><td>✅ 通过，<code>config = "max"</code></td></tr>
+    <tr><td><code>--config abc</code></td><td>❌ 报错！不在可选列表中</td></tr>
+  </table>
+</div>
+
+<h3>1.4 装饰器的执行顺序</h3>
+
+<div class="card purple">
+  <p>装饰器从<strong>下往上</strong>执行（离函数近的最先）。下面三行等价于：</p>
+  <pre><code><span class="dec">@cli.command</span>()                              <span class="cm"># ③ 最后：注册为 CLI 子命令</span>
+<span class="dec">@click.option</span>(<span class="str">'--parallel/--sequential'</span>)   <span class="cm"># ② 然后：添加选项</span>
+<span class="dec">@click.option</span>(<span class="str">'--chunk-size'</span>, default=<span class="num">2</span>)         <span class="cm"># ① 最先：添加选项</span>
+<span class="kw">def</span> <span class="fn">parse_pdfs</span>(parallel, chunk_size):</code></pre>
+  <p>最终效果：<code>parse_pdfs</code> 变成 <code>cli</code> 的子命令 <code>parse-pdfs</code>，接受 <code>--parallel</code> 和 <code>--chunk-size</code> 两个可选参数。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="commands">二、全部 5 条命令详解</h2>
+
+<div class="tip">所有命令都以 <code>python main.py</code> 开头运行。下面是每条命令的完整说明。</div>
+
+<!-- 命令1 -->
+<div class="card blue">
+  <h3>① <code>download-models</code> — 一次性准备工作</h3>
+  <pre><code>python main.py download-models</code></pre>
+  <table>
+    <tr><th>什么时候跑</th><td>只跑一次，环境初始化</td></tr>
+    <tr><th>干什么</th><td>下载 Docling（PDF 解析引擎）需要的 AI 模型文件</td></tr>
+    <tr><th>输入</th><td>无</td></tr>
+    <tr><th>输出</th><td>模型文件存入本地缓存</td></tr>
+    <tr><th>代码路径</th><td><code>main.py → Pipeline.download_docling_models() → PDFParser.parse_and_export()</code></td></tr>
+  </table>
+</div>
+
+<!-- 命令2 -->
+<div class="card blue">
+  <h3>② <code>parse-pdfs</code> — PDF → 结构化 JSON</h3>
+  <pre><code><span class="cm"># 全部默认（并行、每worker 2个PDF、10个worker）</span>
+python main.py parse-pdfs
+
+<span class="cm"># 串行模式（调试用）</span>
+python main.py parse-pdfs --sequential
+
+<span class="cm"># 自定义参数</span>
+python main.py parse-pdfs --parallel --chunk-size <span class="num">5</span> --max-workers <span class="num">4</span></code></pre>
+  <table>
+    <tr><th>参数</th><th>类型</th><th>默认</th><th>说明</th></tr>
+    <tr><td><code>--parallel / --sequential</code></td><td>布尔开关</td><td>True</td><td>并行（快）/ 串行（调试）</td></tr>
+    <tr><td><code>--chunk-size</code></td><td>整数</td><td>2</td><td>每个 worker 一次处理几个 PDF</td></tr>
+    <tr><td><code>--max-workers</code></td><td>整数</td><td>10</td><td>最多几个进程同时干活</td></tr>
+  </table>
+  <h4>执行流程</h4>
+  <div class="flow">pdf_reports/*.pdf
+      │
+      ▼
+  Docling 引擎解析
+      │
+      ▼
+  debug_data/01_parsed_reports/*.json     ← 结构化 JSON（文本、表格、页码）
+  debug_data/01_parsed_reports_debug/*.json ← 调试版本</div>
+</div>
+
+<!-- 命令3 -->
+<div class="card blue">
+  <h3>③ <code>serialize-tables</code> — 表格优化（可选）</h3>
+  <pre><code>python main.py serialize-tables --max-workers <span class="num">10</span></code></pre>
+  <table>
+    <tr><th>干什么</th><td>把 PDF 里的表格转成 LLM 容易读的纯文本描述</td></tr>
+    <tr><th>什么时候跑</th><td><code>parse-pdfs</code> 之后、<code>process-reports</code> 之前。PDF 表格不多可跳过</td></tr>
+    <tr><th>代码路径</th><td><code>main.py → Pipeline.serialize_tables() → TableSerializer</code></td></tr>
+  </table>
+</div>
+
+<!-- 命令4 -->
+<div class="card blue">
+  <h3>④ <code>process-reports</code> — 分块 + 向量化 + 建 FAISS 索引</h3>
+  <pre><code><span class="cm"># 基础版：只分块，不用表格序列化</span>
+python main.py process-reports --config no_ser_tab
+
+<span class="cm"># 增强版：分块时带上序列化后的表格</span>
+python main.py process-reports --config ser_tab</code></pre>
+  <table>
+    <tr><th>参数</th><th>类型</th><th>可选值</th></tr>
+    <tr><td><code>--config</code></td><td>枚举</td><td><code>no_ser_tab</code>（默认）、<code>ser_tab</code></td></tr>
+  </table>
+  <h4>执行流程</h4>
+  <div class="flow">debug_data/03_reports_markdown/*.md
+      │
+      ▼  [step1] TextSplitter.split_markdown_reports()
+      │         按 30 行一块切，重叠 5 行
+      │
+      ▼
+  databases/chunked_reports/*.json        ← 切好的文本块
+      │
+      ▼  [step2] VectorDBIngestor.process_reports()
+      │         每个 chunk → DashScope 生成向量 → FAISS 建索引
+      │
+      ▼
+  databases/vector_dbs/*.faiss            ← 向量索引（每公司一个）</div>
+  <div class="warn"><strong>注意</strong>：如果 <code>databases/vector_dbs/</code> 下已经有 <code>*.faiss</code> 文件，不需要重跑这个命令！</div>
+</div>
+
+<!-- 命令5 -->
+<div class="card blue" style="border-left: 4px solid var(--red);">
+  <h3>⑤ <code>process-questions</code> 🔥 核心命令 — 检索 + LLM 回答</h3>
+  <pre><code><span class="cm"># 基础版：快、便宜、GPT-4o-mini</span>
+python main.py process-questions --config base
+
+<span class="cm"># 增强版：父文档检索、GPT-4o</span>
+python main.py process-questions --config pdr
+
+<span class="cm"># 旗舰版：父文档检索 + LLM重排、Qwen-Turbo ⭐推荐</span>
+python main.py process-questions --config max</code></pre>
+  <table>
+    <tr><th>参数</th><th>类型</th><th>可选值</th></tr>
+    <tr><td><code>--config</code></td><td>枚举</td><td><code>base</code>、<code>pdr</code>、<code>max</code> 等</td></tr>
+  </table>
+  <h4>三种预设对比</h4>
+  <table>
+    <tr><th></th><th><code>base</code></th><th><code>pdr</code></th><th><code>max</code></th></tr>
+    <tr><td>模型</td><td>gpt-4o-mini</td><td>gpt-4o</td><td>qwen-turbo</td></tr>
+    <tr><td>父文档检索</td><td><span class="tag tag-false">❌</span></td><td><span class="tag tag-true">✅</span></td><td><span class="tag tag-true">✅</span></td></tr>
+    <tr><td>LLM 重排序</td><td><span class="tag tag-false">❌</span></td><td><span class="tag tag-false">❌</span></td><td><span class="tag tag-true">✅</span></td></tr>
+    <tr><td>并行请求</td><td>10</td><td>20</td><td>4</td></tr>
+    <tr><td>输出文件</td><td><code>answers_base.json</code></td><td><code>answers_pdr.json</code></td><td><code>answers_qwen_turbo.json</code></td></tr>
+    <tr><td>速度</td><td>🚀 快</td><td>🐢 中</td><td>🐢🐢 慢</td></tr>
+    <tr><td>准确度</td><td>⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+  </table>
+  <h4>执行流程</h4>
+  <div class="flow">questions.json（问题列表）
+      │
+      ▼
+  对每个问题：
+  ├── 1. 从问题文本提取公司名
+  ├── 2. 检索（向量检索 → 可选 LLM 重排 → 可选父文档检索）
+  │       │
+  │       ├── base: VectorRetriever（纯向量检索）
+  │       └── max:  HybridRetriever（向量检索 + LLM 重排）
+  ├── 3. 拼成 RAG 上下文喂给 LLM
+  ├── 4. 调 LLM 生成答案（含推理摘要、引用页码）
+  └── 5. 校验页码引用（防幻觉）
+      │
+      ▼
+  answers_xxx.json           ← 答案提交格式
+  answers_xxx_debug.json     ← 调试版（含完整推理过程）</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="config">三、Config 系统详解</h2>
+
+<h3>3.1 两层配置</h3>
+
+<div class="card green">
+  <h4>第一层：<code>PipelineConfig</code> — 管「文件放哪里」的路径配置</h4>
+  <pre><code><span class="kw">class</span> <span class="fn">PipelineConfig</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, root_path, serialized=False, config_suffix=<span class="str">""</span>):
+        self.subset_path      = root_path / <span class="str">"subset.csv"</span>
+        self.questions_file   = root_path / <span class="str">"questions.json"</span>
+        self.answers_file     = root_path / <span class="str">f"answers</span>{config_suffix}<span class="str">.json"</span>
+        self.vector_db_dir    = databases_path / <span class="str">"vector_dbs"</span>
+        self.documents_dir    = databases_path / <span class="str">"chunked_reports"</span>
+        self.bm25_db_path     = databases_path / <span class="str">"bm25_dbs"</span>
+        ...</code></pre>
+  <p>📌 <strong>比喻</strong>：就像你决定「今天所有照片存到 <code>旅行/日本/</code> 文件夹」。只管路径，不管怎么干活。</p>
+</div>
+
+<div class="card orange">
+  <h4>第二层：<code>RunConfig</code> — 管「程序怎么跑」的行为配置</h4>
+  <pre><code><span class="kw">class</span> <span class="fn">RunConfig</span>:
+    use_serialized_tables: bool        = <span class="kw">False</span>   <span class="cm"># 是否用表格序列化</span>
+    parent_document_retrieval: bool    = <span class="kw">False</span>   <span class="cm"># 是否返回整页内容</span>
+    llm_reranking: bool                = <span class="kw">False</span>   <span class="cm"># 是否用 LLM 重排</span>
+    llm_reranking_sample_size: int     = <span class="num">30</span>      <span class="cm"># 重排时粗筛多少条</span>
+    top_n_retrieval: int               = <span class="num">10</span>      <span class="cm"># 最终保留多少条上下文</span>
+    parallel_requests: int             = <span class="num">1</span>       <span class="cm"># 同时处理几个问题</span>
+    answering_model: str               = <span class="str">"qwen-turbo"</span>  <span class="cm"># 用哪个模型</span>
+    api_provider: str                  = <span class="str">"dashscope"</span>   <span class="cm"># 用哪个 API</span>
+    config_suffix: str                 = <span class="str">""</span>        <span class="cm"># 输出文件名后缀</span></code></pre>
+  <p>📌 <strong>比喻</strong>：就像相机的「人像模式/夜景模式/运动模式」，选不同模式会调整快门、ISO、对焦方式。</p>
+</div>
+
+<h3>3.2 参数逐个解释</h3>
+
+<div class="card purple">
+  <table>
+    <tr><th>参数名</th><th>类型</th><th>作用</th><th>max 的值</th></tr>
+    <tr>
+      <td><code>parent_document_retrieval</code></td>
+      <td>bool</td>
+      <td>检索时是否返回匹配 <strong>整页</strong> 内容（而非仅匹配的小段落）。<br>就像查书时不仅看那一句话，还把整页都读了。</td>
+      <td><span class="tag tag-true">✅ True</span></td>
+    </tr>
+    <tr>
+      <td><code>llm_reranking</code></td>
+      <td>bool</td>
+      <td>检索结果是否再用 LLM <strong>重新打分排序</strong>，把最相关的排最前面。<br>就像搜索引擎的「按相关度排序」。</td>
+      <td><span class="tag tag-true">✅ True</span></td>
+    </tr>
+    <tr>
+      <td><code>llm_reranking_sample_size</code></td>
+      <td>int</td>
+      <td>重排序时先粗筛多少条候选（从里面精选）。<br>数字越大越准但越慢。</td>
+      <td>30</td>
+    </tr>
+    <tr>
+      <td><code>top_n_retrieval</code></td>
+      <td>int</td>
+      <td>最终保留多少条相关结果喂给 LLM。<br>太多会超 token 限制，太少可能信息不足。</td>
+      <td>10</td>
+    </tr>
+    <tr>
+      <td><code>parallel_requests</code></td>
+      <td>int</td>
+      <td>同时处理几个问题。受 API 限流制约。<br>Qwen 限流严格所以只设 4，GPT 可设 10~20。</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <td><code>answering_model</code></td>
+      <td>str</td>
+      <td>用于生成最终答案的模型名称。</td>
+      <td><code>"qwen-turbo"</code></td>
+    </tr>
+    <tr>
+      <td><code>api_provider</code></td>
+      <td>str</td>
+      <td>调用哪个 API 服务商（dashscope / openai）。</td>
+      <td><code>"dashscope"</code></td>
+    </tr>
+    <tr>
+      <td><code>config_suffix</code></td>
+      <td>str</td>
+      <td>输出文件名的后缀。如 <code>"_qwen_turbo"</code> → <code>answers_qwen_turbo.json</code></td>
+      <td><code>"_qwen_turbo"</code></td>
+    </tr>
+    <tr>
+      <td><code>use_serialized_tables</code></td>
+      <td>bool</td>
+      <td>报告分块时是否插入序列化后的表格内容。</td>
+      <td><span class="tag tag-false">❌ False</span></td>
+    </tr>
+  </table>
+</div>
+
+<h3>3.3 Config 的流转链路</h3>
+
+<div class="flow">你敲的命令                    代码里的动作
+══════════                    ══════════
+
+--config max ──────────→  configs["max"]  ──→  max_config (RunConfig 对象)
+                           │
+                           ▼
+                    Pipeline(root_path, run_config=max_config)
+                           │
+                           ├── self.run_config = max_config
+                           │
+                           ├── PipelineConfig(config_suffix="_qwen_turbo")
+                           │     ├── answers_file → answers_qwen_turbo.json
+                           │     └── vector_db_dir → databases/vector_dbs/
+                           │
+                           ▼
+                    QuestionsProcessor(
+                        parent_document_retrieval=True,   ← 来自 config
+                        llm_reranking=True,              ← 来自 config
+                        parallel_requests=4,             ← 来自 config
+                        answering_model="qwen-turbo",    ← 来自 config
+                        top_n_retrieval=10,              ← 来自 config
+                    )
+                           │
+                           ▼
+                    实际干活：检索 → 重排 → LLM → 生成答案</div>
+
+<h3>3.4 config 决定检索器的分支逻辑</h3>
+
+<div class="card red">
+  <pre><code><span class="cm"># 在 questions_processing.py 的 get_answer_for_company() 中：</span>
+<span class="kw">if</span> self.llm_reranking:
+    retriever = <span class="fn">HybridRetriever</span>(...)   <span class="cm"># 向量检索 + LLM重排（max）</span>
+<span class="kw">else</span>:
+    retriever = <span class="fn">VectorRetriever</span>(...)   <span class="cm"># 纯向量检索（base/pdr）</span></code></pre>
+  <p><code>HybridRetriever</code> 的内部流程：</p>
+  <ol>
+    <li>向量检索粗筛 <strong>30 条</strong>（<code>llm_reranking_sample_size</code>）</li>
+    <li>LLM 对这 30 条重新打分排序</li>
+    <li>取前 <strong>10 条</strong>（<code>top_n_retrieval</code>）作为最终上下文</li>
+  </ol>
+</div>
+
+<h3>3.5 如何自定义配置</h3>
+
+<div class="card green">
+  <p>假设你想做一个「超快版」：不重排、不检索父文档，但并行开到 20：</p>
+  <pre><code><span class="cm"># 在 src/pipeline.py 里加上：</span>
+<span class="fn">fast_config</span> = <span class="fn">RunConfig</span>(
+    parent_document_retrieval=<span class="kw">False</span>,
+    llm_reranking=<span class="kw">False</span>,
+    parallel_requests=<span class="num">20</span>,
+    answering_model=<span class="str">"qwen-turbo"</span>,
+    config_suffix=<span class="str">"_fast"</span>
+)
+
+<span class="cm"># 注册到字典里：</span>
+configs = {
+    <span class="str">"base"</span>: base_config,
+    <span class="str">"pdr"</span>:  pdr_config,
+    <span class="str">"max"</span>:  max_config,
+    <span class="str">"fast"</span>: fast_config,   <span class="cm"># ← 新增</span>
+}</code></pre>
+  <p>然后就可以：</p>
+  <pre><code>python main.py process-questions --config fast</code></pre>
+</div>
+
+<h3>3.6 Streamlit 界面也走 Config</h3>
+
+<div class="card blue">
+  <p><code>app_streamlit.py</code> 固定使用 <code>max_config</code>：</p>
+  <pre><code><span class="kw">from</span> src.pipeline <span class="kw">import</span> Pipeline, max_config
+
+pipeline = <span class="fn">Pipeline</span>(root_path, run_config=max_config)</code></pre>
+  <p>所以你在网页界面输入问题，走的就是 <code>max</code> 配置的完整路径。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="flow">四、完整流程图</h2>
+
+<div class="flow">
+                        ┌─────────────────────────────┐
+                        │  ① download-models（一次性）  │
+                        │     下载 Docling AI 模型     │
+                        └─────────────┬───────────────┘
+                                      │
+                        ┌─────────────▼───────────────┐
+                        │  ② parse-pdfs                │
+                        │     PDF → 结构化 JSON         │
+                        │     输入：pdf_reports/*.pdf   │
+                        │     输出：01_parsed_reports/  │
+                        └─────────────┬───────────────┘
+                                      │
+                        ┌─────────────▼───────────────┐
+                        │  ③ serialize-tables（可选）   │
+                        │     表格 → 纯文本描述          │
+                        └─────────────┬───────────────┘
+                                      │
+                        ┌─────────────▼───────────────┐
+                        │  ④ process-reports           │
+                        │     --config no_ser_tab      │
+                        │     切块 + 向量化 + FAISS    │
+                        │     输入：reports_markdown/   │
+                        │     输出：vector_dbs/*.faiss  │
+                        └─────────────┬───────────────┘
+                                      │
+                        ┌─────────────▼───────────────┐
+                        │  ⑤ process-questions 🔥      │
+                        │     --config max             │
+                        │     ┌─────────────────────┐  │
+                        │     │ 向量检索 → LLM重排    │  │
+                        │     │ → 拼上下文 → LLM回答  │  │
+                        │     └─────────────────────┘  │
+                        │     输入：questions.json      │
+                        │     输出：answers_xxx.json    │
+                        └─────────────────────────────┘</div>
+
+<!-- ============================================================ -->
+<h2 id="faq">五、常见问题 & 速查表</h2>
+
+<div class="card green">
+  <h4>我只想回答问题，前面的步骤都必须跑吗？</h4>
+  <p><strong>不需要！</strong> 如果 <code>databases/vector_dbs/</code> 下已经有 <code>*.faiss</code> 文件了，直接：</p>
+  <pre><code>python main.py process-questions --config max</code></pre>
+  <p>①②③④ 只在<strong>第一次</strong>或者<strong>换了新的 PDF</strong> 时才需要跑。</p>
+</div>
+
+<div class="card green">
+  <h4>base 和 max 的准确度差距有多大？</h4>
+  <p><strong>base</strong>：你去图书馆，管理员随手给你 10 本书 → 自己翻</p>
+  <p><strong>max</strong>：管理员海选 30 本 → 请专家帮你挑最相关的 10 本 → 把关键章节折好角给你</p>
+  <p>结果质量差距明显。max 每次多调一次 LLM 做重排，所以慢但准。</p>
+</div>
+
+<h3>命令速查表</h3>
+
+<table>
+  <tr><th>你要做什么</th><th>命令</th></tr>
+  <tr><td>第一次初始化环境</td><td><code>python main.py download-models</code></td></tr>
+  <tr><td>换了新的 PDF 年报</td><td><code>python main.py parse-pdfs</code></td></tr>
+  <tr><td>PDF 里表格特别多</td><td><code>python main.py serialize-tables</code></td></tr>
+  <tr><td>重建向量数据库</td><td><code>python main.py process-reports</code></td></tr>
+  <tr><td>快速试跑问答</td><td><code>python main.py process-questions --config base</code></td></tr>
+  <tr><td>正式跑问答（推荐）</td><td><code>python main.py process-questions --config max</code></td></tr>
+  <tr><td>网页界面交互</td><td><code>streamlit run app_streamlit.py</code></td></tr>
+</table>
+
+<p style="text-align:center; color: #565f89; margin-top: 48px;">— END —</p>
+
+</div>
+</body>
+</html>

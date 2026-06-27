@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 智能问答系统 — 业务流程详解（小白版）</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text: #e0e0e0;
+            --accent: #7b2ff2;
+            --accent2: #f357a8;
+            --code-bg: #0d1117;
+            --border: #2a2a4a;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --info: #58a6ff;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.8;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* 标题区 */
+        .hero {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            border-radius: 16px;
+            padding: 48px 40px;
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .hero h1 { color: #fff; font-size: 2.4em; margin-bottom: 12px; }
+        .hero p { color: rgba(255,255,255,0.85); font-size: 1.15em; }
+
+        /* 卡片 */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 28px;
+        }
+        .card h2 {
+            color: var(--accent2);
+            font-size: 1.6em;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+        .card h3 { color: var(--info); font-size: 1.25em; margin: 20px 0 10px; }
+        .card h4 { color: var(--warning); font-size: 1.05em; margin: 14px 0 8px; }
+
+        /* 代码块 */
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            overflow-x: auto;
+            font-size: 0.9em;
+            margin: 12px 0;
+        }
+        code {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        p code, li code {
+            background: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent2);
+        }
+
+        /* 列表 */
+        ul, ol { padding-left: 24px; margin: 10px 0; }
+        li { margin: 6px 0; }
+
+        /* 提示框 */
+        .tip {
+            border-left: 4px solid var(--info);
+            background: rgba(88,166,255,0.1);
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .tip::before { content: '💡 小白理解：'; color: var(--info); font-weight: bold; }
+        .warn {
+            border-left: 4px solid var(--warning);
+            background: rgba(210,153,34,0.1);
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .warn::before { content: '⚠️ 注意：'; color: var(--warning); font-weight: bold; }
+        .danger {
+            border-left: 4px solid var(--danger);
+            background: rgba(248,81,73,0.1);
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .danger::before { content: '🐛 已知 BUG：'; color: var(--danger); font-weight: bold; }
+
+        /* Mermaid 图容器 */
+        .mermaid {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            overflow-x: auto;
+        }
+
+        /* 表格 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.92em;
+        }
+        th {
+            background: var(--accent);
+            color: #fff;
+            padding: 10px 14px;
+            text-align: left;
+        }
+        td {
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover td { background: rgba(123,47,242,0.08); }
+
+        /* 文件路径标签 */
+        .file-tag {
+            display: inline-block;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: var(--accent2);
+        }
+
+        /* 步骤编号 */
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        /* 导航目录 */
+        .toc {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 32px;
+            margin-bottom: 28px;
+        }
+        .toc h3 { color: var(--accent2); margin-bottom: 12px; }
+        .toc ol { columns: 2; }
+        .toc a { color: var(--info); text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .hero { padding: 28px 16px; }
+            .hero h1 { font-size: 1.6em; }
+            .card { padding: 20px; }
+            .toc ol { columns: 1; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<div class="hero">
+    <h1>🚀 RAG 智能问答系统 — 业务流程详解</h1>
+    <p>基于 PDF 年报的检索增强生成（RAG）系统 · 面向小白的逐行讲解 · 含 Mermaid 流程图</p>
+    <p style="margin-top:8px; font-size:0.9em; opacity:0.8;">项目路径：<code>src/</code> · 共 13 个核心模块 · 支持 OpenAI / DashScope(Qwen) / Gemini / IBM 多种模型</p>
+</div>
+
+<!-- ═══════════════ 目录 ═══════════════ -->
+<div class="toc">
+    <h3>📖 目录</h3>
+    <ol>
+        <li><a href="#s1">这个项目是干什么的？</a></li>
+        <li><a href="#s2">核心概念：什么是 RAG？</a></li>
+        <li><a href="#s3">整体业务流程图</a></li>
+        <li><a href="#s4">第零步：项目启动入口</a></li>
+        <li><a href="#s5">第一步：PDF 解析 → 结构化数据</a></li>
+        <li><a href="#s6">第二步：文本规整 → Markdown</a></li>
+        <li><a href="#s7">第三步：文本分块（Chunking）</a></li>
+        <li><a href="#s8">第四步：向量化 & 建库</a></li>
+        <li><a href="#s9">第五步：问题处理 & 检索</a></li>
+        <li><a href="#s10">第六步：LLM 生成答案</a></li>
+        <li><a href="#s11">第七步：多公司比较</a></li>
+        <li><a href="#s12">Prompt 体系全解</a></li>
+        <li><a href="#s13">配置体系 & 运行方式</a></li>
+        <li><a href="#s14">模块调用关系总图</a></li>
+        <li><a href="#s15">已知问题 & 改进方向</a></li>
+    </ol>
+</div>
+
+<!-- ═══════════════ 1. 项目概述 ═══════════════ -->
+<div class="card" id="s1">
+    <h2>1. 这个项目是干什么的？</h2>
+
+    <p>这是一个<strong>RAG 智能问答系统</strong>——用 AI 自动回答关于公司年报的专业问题。</p>
+
+    <div class="tip">
+        把它想象成一个<strong>超级聪明的「年报阅读机器人」</strong>：你给它一堆 PDF 年报，然后问它问题（比如「中芯国际 2024 年营收是多少？」），它就能自动从 PDF 里找到答案并回答你。
+    </div>
+
+    <h3>举个具体例子</h3>
+    <p>假设你上传了 <strong>9 份关于中芯国际的 PDF 研报</strong>（券商报告、公司年报等），然后问：</p>
+
+    <table>
+        <tr><th>你的问题</th><th>系统做什么</th><th>最终回答</th></tr>
+        <tr>
+            <td>「中芯国际在晶圆制造行业中的地位如何？」</td>
+            <td>从 PDF 中搜索相关内容 → LLM 总结</td>
+            <td>中芯国际是中国大陆最大的晶圆代工企业，全球排名第五…</td>
+        </tr>
+        <tr>
+            <td>「中芯国际 2024 年营收是多少？」</td>
+            <td>精准定位财务数据页面 → 提取数值</td>
+            <td>578.9（亿元）</td>
+        </tr>
+    </table>
+
+    <h3>支持的问题类型</h3>
+    <table>
+        <tr><th>类型</th><th>示例</th><th>答案格式</th></tr>
+        <tr><td><code>string</code> 文本</td><td>「请总结中芯国际的主营业务」</td><td>一段完整文字</td></tr>
+        <tr><td><code>number</code> 数值</td><td>「中芯国际 2024 年营收是多少？」</td><td>578.9</td></tr>
+        <tr><td><code>name</code> 人名</td><td>「中芯国际的 CEO 是谁？」</td><td>「张三」</td></tr>
+        <tr><td><code>names</code> 名单</td><td>「中芯国际有哪些新任高管？」</td><td>['张三', '李四']</td></tr>
+        <tr><td><code>boolean</code> 布尔</td><td>「中芯国际是否宣布了分红政策变更？」</td><td>true / false</td></tr>
+        <tr><td>比较类</td><td>「A 公司和 B 公司哪家营收更高？」</td><td>「A 公司」</td></tr>
+    </table>
+</div>
+
+<!-- ═══════════════ 2. 什么是 RAG ═══════════════ -->
+<div class="card" id="s2">
+    <h2>2. 核心概念：什么是 RAG？</h2>
+
+    <p><strong>RAG = Retrieval-Augmented Generation</strong>（检索增强生成）</p>
+
+    <div class="tip">
+        <strong>一句话理解：</strong>让 LLM（大模型）在回答之前，先「翻书」找到相关内容，再基于找到的内容作答。这样 LLM 就不会瞎编（幻觉）。
+    </div>
+
+    <h3>为什么不直接问 ChatGPT？</h3>
+    <table>
+        <tr><th>方式</th><th>优点</th><th>缺点</th></tr>
+        <tr>
+            <td>直接问 ChatGPT</td>
+            <td>简单方便</td>
+            <td>可能编造数据、不知道你公司特定信息、有知识截止日期</td>
+        </tr>
+        <tr>
+            <td>用 RAG 系统</td>
+            <td>答案基于你提供的文档，可追溯来源</td>
+            <td>需要额外的检索步骤</td>
+        </tr>
+    </table>
+
+    <h3>RAG 的核心三步</h3>
+    <div class="mermaid">
+graph LR
+    A["📄 你的文档<br/>(PDF年报)"] -->|"① 检索 Retrieval"| B["🔍 找到相关段落<br/>(向量搜索)"]
+    B -->|"② 增强 Augmented"| C["📝 把段落+问题<br/>拼成提示词"]
+    C -->|"③ 生成 Generation"| D["🤖 LLM 阅读后<br/>生成答案"]
+    </div>
+
+    <h3>RAG vs 无 RAG 对比图</h3>
+    <p>下图直观展示了<strong>为什么需要 RAG</strong>：没有 RAG 时，LLM 可能编造答案或拒绝回答；有了 RAG，LLM 基于检索到的文档内容作答，答案更准确可靠。</p>
+    <div class="mermaid">
+flowchart TB
+    subgraph 输入层["Input"]
+        Query["Query<br/>How do you evaluate the fact that OpenAI's CEO, Sam Altman,<br/>went through a sudden dismissal by the board in just three days,<br/>and then was rehired by the company, resembling a real-life<br/>version of 'Game of Thrones' in terms of power dynamics?"]
+    end
+
+    subgraph 索引层["Indexing"]
+        Docs["Documents"] --> Chunks["Chunks"]
+        Chunks --> Vectors["Vectors"]
+        Vectors --> Embeddings["embeddings"]
+    end
+
+    subgraph 检索层["Retrieval"]
+        Embeddings --> RelDocs["Relevant Documents"]
+        RelDocs --> Chunk1["Chunk 1: 'Sam Altman Returns to OpenAI as CEO, Silicon Valley Drama Resembles the 'Zhen Huan' Comedy'"]
+        RelDocs --> Chunk2["Chunk 2: 'The Drama Concludes? Sam Altman to Return as CEO of OpenAI, Board to Undergo Restructuring'"]
+        RelDocs --> Chunk3["Chunk 3: 'The Personnel Turmoil at OpenAI Comes to an End: Who Won and Who Lost?'"]
+    end
+
+    subgraph 生成层["Generation"]
+        LLM["LLM"]
+        Context["Combine Context and Prompts<br/>Question: How do you evaluate...<br/>Please answer the above questions<br/>based on the following information:<br/>Chunk 1...<br/>Chunk 2...<br/>Chunk 3..."] --> LLM
+    end
+
+    subgraph 输出对比["Output"]
+        direction TB
+        WithoutRAG["without RAG ❌<br/>...I am unable to provide comments on<br/>future events. Currently, I do not have<br/>any information regarding the dismissal<br/>and rehiring of OpenAI's CEO..."]
+        WithRAG["with RAG ✅<br/>...This suggests significant internal<br/>disagreements within OpenAI regarding<br/>future events. Currently, I do not have<br/>any information regarding the dismissal<br/>and rehiring of OpenAI's CEO..."]
+        Answer["Answer"]
+    end
+
+    Query --> LLM
+    Chunk1 --> Context
+    Chunk2 --> Context
+    Chunk3 --> Context
+    LLM --> WithoutRAG
+    LLM --> WithRAG
+    WithRAG --> Answer
+
+    style WithoutRAG fill:#ffcccc,color:#cc0000
+    style WithRAG fill:#ccffcc,color:#006600
+    style Answer fill:#e6f3ff,color:#0066cc
+    </div>
+
+    <div class="tip">
+        <strong>核心区别：</strong>左侧「without RAG」的 LLM 因为缺乏实时信息，只能拒绝回答或编造；右侧「with RAG」的 LLM 基于检索到的 3 个相关文档片段，能够给出准确、有依据的回答。
+    </div>
+</div>
+
+<!-- ═══════════════ 3. 整体业务流程图 ═══════════════ -->
+<div class="card" id="s3">
+    <h2>3. 整体业务流程图</h2>
+
+    <p>下面这张图展示了系统从 PDF 到最终答案的<strong>完整流程</strong>。你可以把它想象成一条工厂流水线：</p>
+
+    <div class="mermaid">
+flowchart TD
+    subgraph 离线预处理["🏭 离线预处理阶段（只需做一次）"]
+        A["📄 PDF 年报文件<br/>data/stock_data/pdf_reports/"] --> B["① 解析 PDF<br/>pdf_parsing.py / pdf_mineru.py"]
+        B --> C["② 文本规整<br/>parsed_reports_merging.py"]
+        C --> D["③ 文本分块<br/>text_splitter.py"]
+        D --> E["④ 向量化 & 建库<br/>ingestion.py"]
+        E --> F["🗄️ FAISS 向量库<br/>databases/vector_dbs/"]
+        D --> G["🗂️ BM25 索引<br/>databases/bm25_dbs/"]
+    end
+
+    subgraph 在线推理["⚡ 在线推理阶段（每次提问都走一遍）"]
+        H["❓ 用户提问<br/>（CLI / Streamlit）"] --> I["⑤ 公司名抽取<br/>questions_processing.py"]
+        I --> J["⑥ 向量检索<br/>retrieval.py"]
+        F --> J
+        J --> K{"是否启用<br/>LLM 重排？"}
+        K -->|是| L["⑦ LLM 重排序<br/>reranking.py"]
+        K -->|否| M["⑧ 构建 RAG 上下文"]
+        L --> M
+        M --> N["⑨ LLM 生成答案<br/>api_requests.py"]
+        N --> O["✅ 结构化答案<br/>(含推理过程+引用页码)"]
+    end
+
+    A --> H
+
+    style A fill:#f357a8,color:#fff
+    style O fill:#3fb950,color:#fff
+    style F fill:#7b2ff2,color:#fff
+    </div>
+
+    <div class="tip">
+        这个流程分成两段：<strong>离线预处理</strong>就像「把书扫描进电脑并建好索引」，只需要做一次。
+        <strong>在线推理</strong>就像「每次查书时翻索引找到相关内容然后回答」。搜索是实时的，但建索引是提前做好的。
+    </div>
+
+    <h3>本系统核心架构图</h3>
+    <p>下图是本 RAG 系统的<strong>核心架构</strong>，清晰展示了从 PDF 到答案的完整数据流：</p>
+    <div style="background: #fff; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+        <img src="image.png" alt="RAG系统核心架构图" style="max-width: 100%; height: auto;" />
+    </div>
+
+    <div class="tip">
+        <strong>架构解读：</strong>
+        <ul>
+            <li><strong>Ingestion（顶部绿色流程）：</strong>PDF 经过解析、清洗、分块后存入向量数据库</li>
+            <li><strong>Answering（底部蓝色流程）：</strong>用户问题触发检索 → 父文档检索 → LLM 重排 → 获取相关上下文，再结合 Prompt 模板生成答案</li>
+            <li><strong>虚线：</strong>表示路由逻辑——根据问题路由到对应的数据库和 Prompt</li>
+        </ul>
+    </div>
+</div>
+
+<!-- ═══════════════ 4. 启动入口 ═══════════════ -->
+<div class="card" id="s4">
+    <h2>4. 第零步：项目启动入口</h2>
+
+    <p>项目有 <strong>3 个入口文件</strong>，分别对应不同使用场景：</p>
+
+    <table>
+        <tr><th>入口文件</th><th>用途</th><th>谁在用</th></tr>
+        <tr>
+            <td><span class="file-tag">main.py</span></td>
+            <td>命令行 CLI 入口，用 <code>click</code> 库构建，可以按步骤执行</td>
+            <td>开发者/批量处理</td>
+        </tr>
+        <tr>
+            <td><span class="file-tag">app_streamlit.py</span></td>
+            <td>Web 图形界面，用 <code>streamlit</code> 构建</td>
+            <td>普通用户交互</td>
+        </tr>
+        <tr>
+            <td><span class="file-tag">src/pipeline.py</span></td>
+            <td>如果直接 <code>python -m src.pipeline</code> 运行，会按代码里写好的顺序执行</td>
+            <td>开发调试</td>
+        </tr>
+    </table>
+
+    <h3>CLI 命令一览</h3>
+    <pre><code># 1. 下载模型（首次使用需要）
+python main.py download-models
+
+# 2. 解析 PDF（并行处理，10 个进程）
+python main.py parse-pdfs --parallel --max-workers 10
+
+# 3. 处理报告（分块 + 建向量库）
+python main.py process-reports --config no_ser_tab
+
+# 4. 回答问题（使用 max 配置：含重排、父文档检索）
+python main.py process-questions --config max</code></pre>
+
+    <div class="mermaid">
+graph TD
+    subgraph 三个入口
+        CLI["🖥️ main.py<br/>命令行工具"] --> Pipe["src/pipeline.py<br/>流程调度中心"]
+        Web["🌐 app_streamlit.py<br/>Web 界面"] --> Pipe
+        Direct["📜 python -m src.pipeline<br/>直接运行"] --> Pipe
+    end
+
+    Pipe --> Parse["parse_pdfs()"]
+    Pipe --> SerTable["serialize_tables()"]
+    Pipe --> ProcReport["process_parsed_reports()"]
+    Pipe --> ProcQ["process_questions()"]
+    Pipe --> SingleQ["answer_single_question()"]
+
+    style CLI fill:#7b2ff2,color:#fff
+    style Web fill:#f357a8,color:#fff
+    style Direct fill:#3fb950,color:#fff
+    style Pipe fill:#d29922,color:#000
+    </div>
+</div>
+
+<!-- ═══════════════ 5. PDF 解析 ═══════════════ -->
+<div class="card" id="s5">
+    <h2>5. 第一步：PDF 解析 → 结构化数据</h2>
+
+    <h3>5.1 两条解析路径</h3>
+    <p>项目实际有<strong>两套 PDF 解析方案</strong>，当前使用的是 MinerU 路径：</p>
+
+    <table>
+        <tr><th></th><th>Docling 路径</th><th>MinerU 路径（当前在用）</th></tr>
+        <tr><td>代码文件</td><td><span class="file-tag">src/pdf_parsing.py</span></td><td><span class="file-tag">src/pdf_mineru.py</span></td></tr>
+        <tr><td>原理</td><td>本地 AI 模型解析 PDF</td><td>调用 MinerU 云端 API 解析</td></tr>
+        <tr><td>输出格式</td><td>结构化 JSON（带页码、表格、图片）</td><td>Markdown 文本（full.md）</td></tr>
+        <tr><td>是否有页码</td><td>✅ 有</td><td>❌ 无</td></tr>
+        <tr><td>是否需要 GPU</td><td>✅ 需要（推荐 4090）</td><td>❌ 不需要</td></tr>
+        <tr><td>是否需要网络</td><td>❌ 离线</td><td>✅ 需要</td></tr>
+    </table>
+
+    <div class="mermaid">
+flowchart LR
+    subgraph Docling路径["Docling 本地解析路径"]
+        D1["📄 PDF"] --> D2["DoclingParseV2Backend<br/>AI 模型解析"]
+        D2 --> D3["结构化 JSON<br/>含 pages/tables/pictures"]
+        D3 --> D4["JsonReportProcessor<br/>组装报告"]
+        D4 --> D5["📋 parsed_reports/*.json"]
+    end
+
+    subgraph MinerU路径["MinerU 云端解析路径（当前在用）"]
+        M1["📄 PDF"] --> M2["上传到 OSS"]
+        M2 --> M3["MinerU API<br/>get_task_id()"]
+        M3 --> M4["轮询结果<br/>get_result()"]
+        M4 --> M5["下载 ZIP 解压"]
+        M5 --> M6["📝 full.md"]
+    end
+
+    style D5 fill:#7b2ff2,color:#fff
+    style M6 fill:#f357a8,color:#fff
+    </div>
+
+    <h3>5.2 Docling 解析的具体过程</h3>
+    <p><span class="file-tag">src/pdf_parsing.py</span> 中的 <code>PDFParser</code> 类负责：</p>
+    <ol>
+        <li><strong>创建转换器</strong>：配置 OCR 引擎（EasyOCR）、表格识别模型（TableFormer Accurate）</li>
+        <li><strong>逐页解析</strong>：识别文字、表格、图片、页眉页脚</li>
+        <li><strong>组装报告</strong>：<code>JsonReportProcessor</code> 把解析结果组装成统一 JSON 格式</li>
+        <li><strong>支持并行</strong>：<code>parse_and_export_parallel()</code> 用多进程并行处理多个 PDF</li>
+    </ol>
+
+    <h4>解析后的 JSON 结构（示例）</h4>
+    <pre><code>{
+  "metainfo": {
+    "sha1": "stock_10001",
+    "company_name": "中芯国际"
+  },
+  "content": [              ← 按页组织
+    {
+      "page": 1,
+      "content": [
+        { "type": "page_header", "text": "中芯国际2024年年度报告" },
+        { "type": "text", "text": "中芯国际集成电路制造有限公司..." },
+        { "type": "table", "table_id": 0 },
+        { "type": "picture", "picture_id": 0 }
+      ]
+    }
+  ],
+  "tables": [               ← 所有表格
+    { "table_id": 0, "page": 5, "markdown": "| 项目 | 金额 |...", "html": "&lt;table&gt;..." }
+  ],
+  "pictures": [...]         ← 所有图片
+}</code></pre>
+</div>
+
+<!-- ═══════════════ 6. 文本规整 ═══════════════ -->
+<div class="card" id="s6">
+    <h2>6. 第二步：文本规整 → Markdown</h2>
+
+    <p><span class="file-tag">src/parsed_reports_merging.py</span> 中的 <code>PageTextPreparation</code> 类负责把结构化 JSON 转换成干净的 Markdown 文本。</p>
+
+    <h3>它做了什么？</h3>
+    <ol>
+        <li><strong>过滤不需要的内容</strong>：移除页脚（page_footer）和图片（picture）</li>
+        <li><strong>格式化排版</strong>：
+            <ul>
+                <li>page_header → <code># 标题</code>（一级标题）</li>
+                <li>section_header → <code>## 标题</code>（二级标题）</li>
+                <li>paragraph → <code>### 段落</code>（三级标题）</li>
+                <li>list_item → <code>- 列表项</code></li>
+            </ul>
+        </li>
+        <li><strong>表格处理</strong>：把表格和它的标题、脚注合并在一起</li>
+        <li><strong>文本清洗</strong>：修正 OCR 识别错误。比如把 <code>/zero</code> 替换成 <code>0</code>，把 <code>/percent</code> 替换成 <code>%</code></li>
+    </ol>
+
+    <div class="tip">
+        想象一下 OCR 扫描时把「100%」错误识别成了「100/percent」——文本清洗就是用正则表达式把这些 OCR 错误修正回来。
+    </div>
+
+    <h4>转换示例</h4>
+    <pre><code>输入（JSON 块）：
+{"type": "section_header", "text": "主营业务分析"}
+{"type": "paragraph", "text": "公司2024年实现营业收入578.9亿元"}
+{"type": "table", "table_id": 0}
+
+↓ PageTextPreparation 处理 ↓
+
+输出（Markdown）：
+## 主营业务分析
+
+### 公司2024年实现营业收入578.9亿元
+
+| 项目     | 2024年  | 2023年  |
+|----------|---------|---------|
+| 营业收入 | 578.9亿 | 452.5亿 |</code></pre>
+</div>
+
+<!-- ═══════════════ 7. 文本分块 ═══════════════ -->
+<div class="card" id="s7">
+    <h2>7. 第三步：文本分块（Chunking）</h2>
+
+    <p><span class="file-tag">src/text_splitter.py</span> 中的 <code>TextSplitter</code> 类负责把长文本切成小块。</p>
+
+    <div class="tip">
+        <strong>为什么要分块？</strong>因为如果把整本 200 页的年报一次性丢给 LLM，它会「看不过来」（token 限制），检索精度也会很低。
+        切成小段后，每段对应一个向量，检索时可以精准定位到最相关的几个段落。
+    </div>
+
+    <h3>当前使用的分块策略（MinerU 路径）</h3>
+    <p><code>split_markdown_file()</code> 方法：</p>
+    <ul>
+        <li><strong>按行分割</strong>：每 30 行切成一个 chunk</li>
+        <li><strong>滑动重叠</strong>：相邻 chunk 之间重叠 5 行（防止关键内容恰好落在边界上）</li>
+    </ul>
+
+    <div class="mermaid">
+graph LR
+    A["📝 Markdown 全文<br/>200行"] --> B["Chunk 1<br/>第1-30行"]
+    A --> C["Chunk 2<br/>第25-55行<br/>（重叠5行）"]
+    A --> D["Chunk 3<br/>第50-80行"]
+    A --> E["..."]
+    B --> F["🗄️ 存入 chunked_reports/*.json"]
+    C --> F
+    D --> F
+    E --> F
+    </div>
+
+    <div class="warn">
+        MinerU 路径的分块<strong>没有页码信息</strong>（chunk 只有 <code>lines</code> 字段，没有 <code>page</code> 字段）。
+        这导致后面的「页码引用」和「父文档检索」功能无法正常工作。
+    </div>
+
+    <h4>分块后的 JSON 结构</h4>
+    <pre><code>{
+  "metainfo": { "sha1": "stock_10001", "company_name": "中芯国际" },
+  "content": {
+    "chunks": [
+      { "lines": [1, 30],   "text": "# 中芯国际2024年年度报告\n\n## 公司简介\n..." },
+      { "lines": [25, 55],  "text": "## 公司简介\n...（与前一个块有重叠）..." },
+      { "lines": [50, 80],  "text": "...（下一个块）..." }
+    ]
+  }
+}</code></pre>
+</div>
+
+<!-- ═══════════════ 8. 向量化建库 ═══════════════ -->
+<div class="card" id="s8">
+    <h2>8. 第四步：向量化 & 建库</h2>
+
+    <p><span class="file-tag">src/ingestion.py</span> 负责两个关键任务：创建向量库和 BM25 索引。</p>
+
+    <h3>8.1 什么是向量嵌入（Embedding）？</h3>
+    <div class="tip">
+        <strong>向量就是把一段文字变成一串数字。</strong>比如「营收增长」可能变成 <code>[0.23, -0.45, 0.78, ...]</code>（1536 个数字）。
+        两段语义相近的文字，它们的向量在空间中距离更近。这就是「语义搜索」的基础。
+    </div>
+
+    <h3>8.2 两个核心类</h3>
+
+    <table>
+        <tr><th>类名</th><th>索引方式</th><th>搜索原理</th><th>适用场景</th></tr>
+        <tr>
+            <td><code>VectorDBIngestor</code></td>
+            <td>FAISS 向量索引</td>
+            <td>语义相似度（余弦距离）</td>
+            <td>理解含义的搜索，如「公司经营情况」</td>
+        </tr>
+        <tr>
+            <td><code>BM25Ingestor</code></td>
+            <td>BM25 稀疏索引</td>
+            <td>关键词匹配（TF-IDF 变体）</td>
+            <td>精确关键词搜索，如「营业收入 578.9亿」</td>
+        </tr>
+    </table>
+
+    <h3>8.3 VectorDBIngestor 的工作流程</h3>
+    <div class="mermaid">
+sequenceDiagram
+    participant Chunks as 分块JSON
+    participant VDB as VectorDBIngestor
+    participant DashScope as DashScope Embedding API
+    participant FAISS as FAISS 向量库
+
+    Chunks->>VDB: 读取所有 chunked_reports/*.json
+    VDB->>VDB: 提取每个 chunk 的 text 字段
+    VDB->>VDB: 截断超长文本（max 2048字符）
+    VDB->>DashScope: 调用 text-embedding-v1<br/>(每批最多25条)
+    DashScope-->>VDB: 返回 1536 维向量
+    VDB->>FAISS: 用 IndexFlatIP 创建向量索引
+    FAISS-->>VDB: 保存为 *.faiss 文件
+    </div>
+
+    <h3>8.4 关键代码逻辑</h3>
+    <pre><code># src/ingestion.py - VectorDBIngestor 核心逻辑
+
+def _process_report(self, report: dict):
+    # 1. 取出所有文本块
+    text_chunks = [chunk['text'] for chunk in report['content']['chunks']]
+
+    # 2. 截断超长文本（最大 2048 字符）
+    text_chunks = [t[:2048] for t in text_chunks if len(t) > 0]
+
+    # 3. 批量获取嵌入向量（每批 25 条）
+    embeddings = self._get_embeddings(text_chunks)
+
+    # 4. 创建 FAISS 向量索引（内积 = 余弦相似度）
+    index = faiss.IndexFlatIP(dimension)  # IP = Inner Product
+    index.add(embeddings_array)
+
+    return index</code></pre>
+</div>
+
+<!-- ═══════════════ 9. 问题处理 & 检索 ═══════════════ -->
+<div class="card" id="s9">
+    <h2>9. 第五步：问题处理 & 检索</h2>
+
+    <p>当用户提问时，<span class="file-tag">src/questions_processing.py</span> 的 <code>QuestionsProcessor</code> 开始工作。</p>
+
+    <h3>9.1 问题处理的完整流程</h3>
+    <div class="mermaid">
+sequenceDiagram
+    participant User as 👤 用户
+    participant QP as QuestionsProcessor
+    participant VR as VectorRetriever
+    participant HR as HybridRetriever
+    participant LLMR as LLMReranker
+    participant API as APIProcessor
+    participant LLM as 🤖 LLM
+
+    User->>QP: 提问："中芯国际的营收是多少？"
+    QP->>QP: ① 抽取公司名<br/>"中芯国际"
+    QP->>QP: ② 判断问题类型<br/>kind = "number"
+
+    alt 启用 LLM 重排
+        QP->>HR: ③ 使用 HybridRetriever
+        HR->>VR: 向量检索 top-28 候选
+        VR-->>HR: 28 个候选 chunk
+        HR->>LLMR: LLM 对候选评分
+        LLMR-->>HR: 重排后的结果
+        HR-->>QP: top-6 最相关的 chunk
+    else 不重排
+        QP->>VR: ③ 直接向量检索 top-10
+        VR-->>QP: top-10 最相关的 chunk
+    end
+
+    QP->>QP: ④ 构建 RAG 上下文<br/>（把 chunk 拼成一段文字）
+    QP->>API: ⑤ 发送（上下文 + 问题）
+    API->>LLM: 调用大模型生成答案
+    LLM-->>API: 结构化 JSON 答案
+    API-->>QP: 解析后的答案
+    QP->>QP: ⑥ 校验引用页码
+    QP-->>User: 最终答案（含推理过程）
+    </div>
+
+    <h3>9.2 检索器详解（src/retrieval.py）</h3>
+
+    <p>项目有 3 种检索器，形成递进关系：</p>
+
+    <table>
+        <tr><th>检索器</th><th>机制</th><th>什么时候用</th></tr>
+        <tr>
+            <td><code>VectorRetriever</code></td>
+            <td>把问题转成向量，在 FAISS 中找最相近的 chunk</td>
+            <td>基础配置、单公司问题</td>
+        </tr>
+        <tr>
+            <td><code>BM25Retriever</code></td>
+            <td>把问题分词，用 BM25 算法匹配关键词</td>
+            <td>需要精确关键词匹配时</td>
+        </tr>
+        <tr>
+            <td><code>HybridRetriever</code></td>
+            <td>向量检索 top-28 → LLM 重排 → 取 top-6</td>
+            <td>启用 llm_reranking 时</td>
+        </tr>
+    </table>
+
+    <h3>9.3 向量检索的核心代码</h3>
+    <pre><code># src/retrieval.py - VectorRetriever.retrieve_by_company_name()
+
+# 1. 找到对应公司的向量库和文档
+target_report = <找到 company_name 匹配的报告>
+vector_db = target_report["vector_db"]   # FAISS 索引
+document = target_report["document"]      # 分块数据
+
+# 2. 把用户问题转换成向量
+embedding = self._get_embedding(query)    # 调用 DashScope API
+embedding_array = np.array(embedding).reshape(1, -1)
+
+# 3. 在 FAISS 中搜索 top-N 最相近的 chunk
+distances, indices = vector_db.search(embedding_array, k=top_n)
+
+# 4. 返回结果（包含分数、页码、文本）
+for distance, index in zip(distances[0], indices[0]):
+    chunk = chunks[index]
+    result = { "distance": distance, "page": chunk["page"], "text": chunk["text"] }</code></pre>
+
+    <h3>9.4 公司名抽取</h3>
+    <p><code>_extract_companies_from_subset()</code> 方法会读取 <span class="file-tag">subset.csv</span> 中的所有公司名，按长度从长到短排序，再在问题文本中匹配：</p>
+    <pre><code># 例如 subset.csv 中有：
+# sha1,file_name,company_name
+# stock_10001,中芯国际年报,中芯国际
+
+# 用户提问：「中芯国际在晶圆制造行业中的地位如何？」
+# → 匹配到 "中芯国际" → extracted_companies = ["中芯国际"]</code></pre>
+</div>
+
+<!-- ═══════════════ 10. LLM 生成答案 ═══════════════ -->
+<div class="card" id="s10">
+    <h2>10. 第六步：LLM 生成答案</h2>
+
+    <p><span class="file-tag">src/api_requests.py</span> 是整个系统与 LLM 交互的核心，支持 <strong>4 种 API 提供商</strong>。</p>
+
+    <h3>10.1 API 提供商一览</h3>
+    <table>
+        <tr><th>Provider</th><th>处理类</th><th>默认模型</th><th>需要什么 Key</th></tr>
+        <tr><td><code>dashscope</code></td><td><code>BaseDashscopeProcessor</code></td><td>qwen-turbo</td><td>阿里云 DashScope API Key</td></tr>
+        <tr><td><code>openai</code></td><td><code>BaseOpenaiProcessor</code></td><td>gpt-4o-2024-08-06</td><td>OpenAI API Key</td></tr>
+        <tr><td><code>gemini</code></td><td><code>BaseGeminiProcessor</code></td><td>gemini-2.0-flash-001</td><td>Google API Key</td></tr>
+        <tr><td><code>ibm</code></td><td><code>BaseIBMAPIProcessor</code></td><td>llama-3-3-70b-instruct</td><td>IBM API Key</td></tr>
+    </table>
+
+    <h3>10.2 APIProcessor 的调度机制</h3>
+    <pre><code># src/api_requests.py - APIProcessor 类
+
+class APIProcessor:
+    def __init__(self, provider="dashscope"):
+        if provider == "openai":
+            self.processor = BaseOpenaiProcessor()
+        elif provider == "ibm":
+            self.processor = BaseIBMAPIProcessor()
+        elif provider == "gemini":
+            self.processor = BaseGeminiProcessor()
+        elif provider == "dashscope":
+            self.processor = BaseDashscopeProcessor()
+
+    def send_message(self, system_content, human_content, ...):
+        # 不管底层是哪个提供商，统一调用 send_message
+        return self.processor.send_message(...)</code></pre>
+
+    <h3>10.3 答案生成的完整调用链</h3>
+    <div class="mermaid">
+sequenceDiagram
+    participant QP as QuestionsProcessor
+    participant API as APIProcessor
+    participant Prompt as prompts.py
+    participant LLM as 🤖 LLM (Qwen/GPT)
+
+    QP->>API: get_answer_from_rag_context(<br/>  question, rag_context, schema="number")
+    API->>Prompt: _build_rag_context_prompts("number")
+    Prompt-->>API: (system_prompt, response_format, user_prompt)
+    Note over API,Prompt: system_prompt = 你是一个RAG问答系统...<br/>+ NumberSchema（严格指标匹配规则）
+    API->>API: user_prompt.format(context=检索到的文本, question=用户问题)
+    API->>LLM: send_message(system, user, is_structured=True)
+    LLM-->>API: JSON 响应
+    API->>API: 解析 JSON，兜底处理
+    API-->>QP: {"step_by_step_analysis": "...",<br/> "final_answer": 578.9,<br/> "relevant_pages": [5,12]}
+    </div>
+
+    <h3>10.4 结构化输出的兜底机制</h3>
+    <p>因为 LLM 有时候返回的不是合法 JSON（特别是 DashScope 的 Qwen），所以 <code>get_answer_from_rag_context()</code> 里有一层兜底：</p>
+    <pre><code># src/api_requests.py 第 426-461 行
+
+if not isinstance(answer_dict, dict) or 'step_by_step_analysis' not in answer_dict:
+    # 兜底：尝试从 final_answer 字符串中解析 JSON
+    # 如果还不行，就用空值填充，返回 N/A
+    answer_dict = {
+        "step_by_step_analysis": "",
+        "reasoning_summary": "",
+        "relevant_pages": [],
+        "final_answer": "N/A"
+    }</code></pre>
+</div>
+
+<!-- ═══════════════ 11. 多公司比较 ═══════════════ -->
+<div class="card" id="s11">
+    <h2>11. 第七步：多公司比较（进阶功能）</h2>
+
+    <p>当用户同时问多家公司时，系统会启动「比较模式」：</p>
+
+    <div class="mermaid">
+sequenceDiagram
+    participant User as 👤 用户
+    participant QP as QuestionsProcessor
+    participant LLM1 as 🤖 LLM（问题重写）
+    participant Parallel as ⚡ 并行处理
+    participant LLM2 as 🤖 LLM（汇总比较）
+
+    User->>QP: "哪家公司营收更高，'中芯国际'还是'台积电'？"
+    QP->>QP: 抽取公司名<br/>["中芯国际", "台积电"]
+    QP->>LLM1: ① 重写问题<br/>RephrasedQuestionsPrompt
+    LLM1-->>QP: 中芯国际→"中芯国际2024年营收是多少？"<br/>台积电→"台积电2024年营收是多少？"
+
+    par 并行处理
+        QP->>QP: ② 检索+回答 中芯国际
+        QP->>QP: ② 检索+回答 台积电
+    end
+
+    QP->>LLM2: ③ 汇总比较<br/>中芯:578.9亿, 台积电:2100亿
+    LLM2-->>QP: ④ 比较结论<br/>"台积电"
+    QP-->>User: 台积电营收更高（2100亿 vs 578.9亿）
+    </div>
+
+    <h3>关键代码</h3>
+    <pre><code># src/questions_processing.py - process_comparative_question()
+
+# 第一步：把比较问题拆成每家公司的独立问题
+rephrased_questions = self.openai_processor.get_rephrased_questions(
+    original_question="哪家公司营收更高？",
+    companies=["中芯国际", "台积电"]
+)
+# → {"中芯国际": "中芯国际2024年营收是多少？",
+#    "台积电": "台积电2024年营收是多少？"}
+
+# 第二步：并行处理每家公司的子问题
+with ThreadPoolExecutor() as executor:
+    # 两家公司同时检索 + LLM 回答
+    ...
+
+# 第三步：汇总各公司结果，生成最终比较答案
+comparative_answer = self.openai_processor.get_answer_from_rag_context(
+    question=original_question,
+    rag_context=individual_answers,   # {"中芯国际": 578.9, "台积电": 2100}
+    schema="comparative"
+)</code></pre>
+</div>
+
+<!-- ═══════════════ 12. Prompt 体系 ═══════════════ -->
+<div class="card" id="s12">
+    <h2>12. Prompt 体系全解</h2>
+
+    <p><span class="file-tag">src/prompts.py</span> 定义了这个系统的「灵魂」——<strong>9 个 Prompt 类</strong>。LLM 的输出质量全靠这些 Prompt。</p>
+
+    <h3>Prompt 设计思想：按答案类型分治</h3>
+    <div class="tip">
+        不要用一个 prompt 同时处理人名、数字、布尔、列表、文本——<strong>每类问题各有各的陷阱和边界条件</strong>，独立约束反而更精准、幻觉更少。
+    </div>
+
+    <div class="mermaid">
+graph TD
+    Q["❓ 用户问题"] --> Router{"问题类型？"}
+
+    Router -->|"string"| P1["AnswerWithRAGContextStringPrompt<br/>文本总结"]
+    Router -->|"number"| P2["AnswerWithRAGContextNumberPrompt<br/>数值提取（最严格）"]
+    Router -->|"name"| P3["AnswerWithRAGContextNamePrompt<br/>人名/实体提取"]
+    Router -->|"names"| P4["AnswerWithRAGContextNamesPrompt<br/>名单提取"]
+    Router -->|"boolean"| P5["AnswerWithRAGContextBooleanPrompt<br/>是非判断"]
+
+    Q --> Multi{"多公司比较？"}
+    Multi -->|是| P6["RephrasedQuestionsPrompt<br/>拆成单公司问题"]
+    P6 --> Router
+    Multi -->|是| P7["ComparativeAnswerPrompt<br/>汇总比较结论"]
+
+    style P2 fill:#f85149,color:#fff
+    style P6 fill:#7b2ff2,color:#fff
+    </div>
+
+    <h3>9 个 Prompt 速查表</h3>
+    <table>
+        <tr><th>#</th><th>类名</th><th>用途</th><th>final_answer 类型</th></tr>
+        <tr><td>1</td><td><code>RephrasedQuestionsPrompt</code></td><td>比较问题拆成单公司问题</td><td>[{公司名, 问题}]</td></tr>
+        <tr><td>2</td><td><code>AnswerWithRAGContextNamePrompt</code></td><td>人名/实体提取</td><td>str | N/A</td></tr>
+        <tr><td>3</td><td><code>AnswerWithRAGContextNumberPrompt</code></td><td>数值提取（最复杂）</td><td>float | int | N/A</td></tr>
+        <tr><td>4</td><td><code>AnswerWithRAGContextBooleanPrompt</code></td><td>是非判断</td><td>bool</td></tr>
+        <tr><td>5</td><td><code>AnswerWithRAGContextNamesPrompt</code></td><td>名单提取</td><td>List[str] | N/A</td></tr>
+        <tr><td>6</td><td><code>AnswerWithRAGContextStringPrompt</code></td><td>文本总结</td><td>str</td></tr>
+        <tr><td>7</td><td><code>ComparativeAnswerPrompt</code></td><td>比较结论汇总</td><td>str | N/A</td></tr>
+        <tr><td>8</td><td><code>AnswerSchemaFixPrompt</code></td><td>JSON 格式修复</td><td>JSON</td></tr>
+        <tr><td>9</td><td><code>RerankingPrompt</code></td><td>检索片段重排序</td><td>相关性分数 0~1</td></tr>
+    </table>
+
+    <h3>Number 类型的严格约束（重点）</h3>
+    <p>数值类问题最容易出错，所以在 <code>AnswerWithRAGContextNumberPrompt</code> 中嵌入了<strong>7 条严格规则</strong>：</p>
+    <ol>
+        <li>明确问题中指标的<strong>精确定义</strong></li>
+        <li>检查上下文中的所有可能指标，关注<strong>实际含义</strong></li>
+        <li>仅当上下文指标含义与目标指标<strong>完全一致</strong>时才接受</li>
+        <li><strong>拒绝</strong>的情况：范围不同、概念相似但不完全等价、需要计算推导、聚合不匹配</li>
+        <li><strong>不允许猜测</strong>：有任何疑问就返回 N/A</li>
+        <li>自动处理格式：百分比、负数括号、千分位、币种不匹配</li>
+        <li>不可由其他指标计算/推导 → 返回 N/A</li>
+    </ol>
+
+    <h4>数值格式转换举例</h4>
+    <table>
+        <tr><th>原文中出现的值</th><th>正确答案</th><th>规则</th></tr>
+        <tr><td><code>58,3%</code></td><td><code>58.3</code></td><td>逗号→小数点，移除%</td></tr>
+        <tr><td><code>(2,124,837) CHF</code></td><td><code>-2124837</code></td><td>括号=负数，移除分隔符</td></tr>
+        <tr><td><code>4970,5（千美元）</code></td><td><code>4970500</code></td><td>千为单位→乘1000</td></tr>
+        <tr><td><code>780000 USD</code>（问题要 EUR）</td><td><code>N/A</code></td><td>币种不匹配</td></tr>
+    </table>
+
+    <h3>四层约束机制</h3>
+    <p>每个 Prompt 的输出通过<strong>四层约束</strong>确保质量：</p>
+    <ol>
+        <li><strong>Pydantic Schema</strong>：用 Python 类型系统精确定义输出字段</li>
+        <li><strong>类型 + Literal 联合</strong>：约束 LLM 只能返回特定类型值</li>
+        <li><strong>Few-shot Example</strong>：用示例教 LLM 模仿标准输出格式</li>
+        <li><strong>Instruction 内嵌规则</strong>：在系统提示词中写明禁止推算、禁止猜测</li>
+    </ol>
+</div>
+
+<!-- ═══════════════ 13. 配置体系 ═══════════════ -->
+<div class="card" id="s13">
+    <h2>13. 配置体系 & 运行方式</h2>
+
+    <h3>13.1 PipelineConfig（路径配置）</h3>
+    <p><span class="file-tag">src/pipeline.py</span> 中的 <code>PipelineConfig</code> 管理所有数据路径：</p>
+    <pre><code>root_path = Path("data/stock_data")
+# 自动推导出以下路径：
+root_path/pdf_reports/          ← PDF 原始文件
+root_path/subset.csv            ← 公司元数据映射
+root_path/questions.json        ← 问题列表
+root_path/debug_data/           ← 调试中间产物
+root_path/databases/
+  ├── chunked_reports/          ← 分块后的 JSON
+  ├── vector_dbs/               ← FAISS 向量库
+  └── bm25_dbs/                 ← BM25 索引</code></pre>
+
+    <h3>13.2 RunConfig（运行参数）</h3>
+    <p><code>RunConfig</code> 控制运行时行为：</p>
+    <table>
+        <tr><th>参数</th><th>默认值</th><th>作用</th></tr>
+        <tr><td><code>use_serialized_tables</code></td><td>False</td><td>是否使用 LLM 序列化表格</td></tr>
+        <tr><td><code>parent_document_retrieval</code></td><td>False</td><td>返回完整页面而非分块（需 Docling 路径）</td></tr>
+        <tr><td><code>llm_reranking</code></td><td>False</td><td>是否用 LLM 重排检索结果</td></tr>
+        <tr><td><code>llm_reranking_sample_size</code></td><td>30</td><td>首轮向量检索的候选数</td></tr>
+        <tr><td><code>top_n_retrieval</code></td><td>10</td><td>最终返回几个最相关 chunk</td></tr>
+        <tr><td><code>parallel_requests</code></td><td>1</td><td>并行处理问题数（注意 API 限流）</td></tr>
+        <tr><td><code>api_provider</code></td><td>"dashscope"</td><td>API 提供商</td></tr>
+        <tr><td><code>answering_model</code></td><td>"qwen-turbo"</td><td>回答问题的模型</td></tr>
+    </table>
+
+    <h3>13.3 预定义配置</h3>
+    <table>
+        <tr><th>配置名</th><th>特点</th><th>适用场景</th></tr>
+        <tr><td><code>base_config</code></td><td>纯向量检索、10 路并行</td><td>快速验证</td></tr>
+        <tr><td><code>parent_document_retrieval_config</code></td><td>父文档检索、gpt-4o</td><td>高质量回答（需 Docling）</td></tr>
+        <tr><td><code>max_config</code></td><td>LLM 重排 + 父文档检索、qwen-turbo</td><td>当前默认配置</td></tr>
+    </table>
+
+    <h3>13.4 Web 界面（Streamlit）</h3>
+    <p><span class="file-tag">app_streamlit.py</span> 提供了图形界面：</p>
+    <pre><code># 启动方式
+streamlit run app_streamlit.py
+
+# 界面布局：
+# ┌──────────────┬──────────────────────────────┐
+# │  左侧边栏     │  右侧主内容区                  │
+# │              │                              │
+# │  输入问题     │  分步推理：                   │
+# │  ┌────────┐  │  "1. 问题询问中芯国际..."      │
+# │  │        │  │                              │
+# │  └────────┘  │  推理摘要：                   │
+# │  [生成答案]   │  "年报第5页直接给出营收数据"    │
+# │              │                              │
+# │              │  相关页面：[5, 12]             │
+# │              │                              │
+# │              │  最终答案：                    │
+# │              │  578.9亿元                    │
+# └──────────────┴──────────────────────────────┘</code></pre>
+</div>
+
+<!-- ═══════════════ 14. 模块调用关系总图 ═══════════════ -->
+<div class="card" id="s14">
+    <h2>14. 模块调用关系总图</h2>
+
+    <p>下面这张图展示了所有模块之间的<strong>调用依赖关系</strong>。箭头表示「A import B」或「A 调用 B」。</p>
+
+    <div class="mermaid">
+graph TD
+    subgraph 入口层["入口层"]
+        MAIN["main.py<br/>CLI 入口"]
+        ST["app_streamlit.py<br/>Web 界面"]
+    end
+
+    subgraph 调度层["调度层"]
+        PIPE["src/pipeline.py<br/>流程调度中心<br/>Pipeline + RunConfig"]
+    end
+
+    subgraph 预处理层["数据预处理层"]
+        PDF["src/pdf_parsing.py<br/>PDFParser<br/>Docling 本地解析"]
+        MINERU["src/pdf_mineru.py<br/>MinerU API 解析"]
+        MERGE["src/parsed_reports_merging.py<br/>PageTextPreparation<br/>文本规整"]
+        SPLIT["src/text_splitter.py<br/>TextSplitter<br/>文本分块"]
+        INGEST["src/ingestion.py<br/>VectorDBIngestor<br/>BM25Ingestor<br/>向量化建库"]
+        TAB_SER["src/tables_serialization.py<br/>TableSerializer<br/>表格序列化(可选)"]
+    end
+
+    subgraph 推理层["在线推理层"]
+        QP["src/questions_processing.py<br/>QuestionsProcessor<br/>问题处理主逻辑"]
+        RET["src/retrieval.py<br/>VectorRetriever<br/>HybridRetriever<br/>BM25Retriever<br/>向量/混合检索"]
+        RERANK["src/reranking.py<br/>LLMReranker<br/>JinaReranker<br/>检索重排序"]
+        API["src/api_requests.py<br/>APIProcessor<br/>BaseOpenaiProcessor<br/>BaseDashscopeProcessor<br/>多Provider LLM调用"]
+        PROMPTS["src/prompts.py<br/>9个Prompt类<br/>结构化输出定义"]
+        PARALLEL["src/api_request_parallel_processor.py<br/>异步批量API处理"]
+    end
+
+    MAIN --> PIPE
+    ST --> PIPE
+    PIPE --> PDF
+    PIPE --> MINERU
+    PIPE --> MERGE
+    PIPE --> SPLIT
+    PIPE --> INGEST
+    PIPE --> TAB_SER
+    PIPE --> QP
+    QP --> RET
+    QP --> API
+    RET --> RERANK
+    RET --> INGEST
+    API --> PROMPTS
+    API --> PARALLEL
+    TAB_SER --> API
+
+    style PIPE fill:#d29922,color:#000
+    style QP fill:#7b2ff2,color:#fff
+    style API fill:#f357a8,color:#fff
+    style PROMPTS fill:#3fb950,color:#fff
+    </div>
+
+    <h3>文件与功能速查表</h3>
+    <table>
+        <tr><th>文件</th><th>核心类/函数</th><th>一句话功能</th></tr>
+        <tr><td><span class="file-tag">main.py</span></td><td><code>cli()</code></td><td>命令行入口，5 个子命令</td></tr>
+        <tr><td><span class="file-tag">app_streamlit.py</span></td><td>-</td><td>Web UI，单问题即时问答</td></tr>
+        <tr><td><span class="file-tag">src/pipeline.py</span></td><td><code>Pipeline</code></td><td>串联所有步骤的总控制器</td></tr>
+        <tr><td><span class="file-tag">src/pdf_parsing.py</span></td><td><code>PDFParser</code></td><td>Docling 本地 PDF 解析</td></tr>
+        <tr><td><span class="file-tag">src/pdf_mineru.py</span></td><td><code>get_task_id()</code></td><td>MinerU 云端 PDF 解析</td></tr>
+        <tr><td><span class="file-tag">src/parsed_reports_merging.py</span></td><td><code>PageTextPreparation</code></td><td>JSON → Markdown 规整</td></tr>
+        <tr><td><span class="file-tag">src/text_splitter.py</span></td><td><code>TextSplitter</code></td><td>长文本分块（30行/块）</td></tr>
+        <tr><td><span class="file-tag">src/ingestion.py</span></td><td><code>VectorDBIngestor</code></td><td>向量化 + FAISS 建库</td></tr>
+        <tr><td><span class="file-tag">src/retrieval.py</span></td><td><code>VectorRetriever</code></td><td>向量检索（核心检索逻辑）</td></tr>
+        <tr><td><span class="file-tag">src/reranking.py</span></td><td><code>LLMReranker</code></td><td>LLM 重排序检索结果</td></tr>
+        <tr><td><span class="file-tag">src/questions_processing.py</span></td><td><code>QuestionsProcessor</code></td><td>问题处理、检索调度、答案生成</td></tr>
+        <tr><td><span class="file-tag">src/api_requests.py</span></td><td><code>APIProcessor</code></td><td>多 Provider LLM 统一调用</td></tr>
+        <tr><td><span class="file-tag">src/prompts.py</span></td><td>9 个 Prompt 类</td><td>LLM 提示词和输出约束</td></tr>
+        <tr><td><span class="file-tag">src/tables_serialization.py</span></td><td><code>TableSerializer</code></td><td>表格内容 LLM 序列化</td></tr>
+    </table>
+</div>
+
+<!-- ═══════════════ 15. 已知问题 ═══════════════ -->
+<div class="card" id="s15">
+    <h2>15. 已知问题 & 改进方向</h2>
+
+    <div class="danger">
+        <strong>LLMReranker 的 dashscope 分支有 Bug：</strong>LLM 的评分结果被硬编码为 0.0，实际没有用上。重排功能退化为纯向量距离排序。
+        详见 <span class="file-tag">src/reranking.py</span> 第 88-94 行和第 137-142 行。
+    </div>
+
+    <div class="warn">
+        <strong>MinerU 路径缺少页码信息：</strong>当前使用的分块方式（按行分割）不记录页码，导致两个功能无效：
+        <ul>
+            <li><strong>父文档检索</strong>（parent_document_retrieval）：需要从 chunk 找到它属于哪一页，但 MinerU 路径下 chunks 没有 page 字段</li>
+            <li><strong>页码校验</strong>（_validate_page_references）：依赖 result['page']，MinerU 下该值恒为 0</li>
+        </ul>
+    </div>
+
+    <h3>改进建议</h3>
+    <ol>
+        <li><strong>修复 LLMReranker</strong>：解析 dashscope 返回的 JSON 字符串，提取真实的 relevance_score</li>
+        <li><strong>换用 DashScope TextReRank</strong>：阿里云有专用重排 API（gte-rerank），比用聊天模型打分更合理</li>
+        <li><strong>接线 JinaReranker</strong>：代码已写好（<span class="file-tag">src/reranking.py</span> 第 10-35 行），只需在 HybridRetriever 中替换引用</li>
+        <li><strong>补充 MinerU 路径的页码</strong>：如果 full.md 中有分页标记，可在分块时解析并记录</li>
+        <li><strong>改用 Docling 路径</strong>：如果有 GPU，回到 Docling 路径可以获得完整的页码和结构化信息</li>
+    </ol>
+</div>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="card" style="text-align: center; opacity: 0.7;">
+    <p>📄 文档生成时间：2026-06-25 | 基于项目 src/ 全部 13 个模块代码审查</p>
+</div>
+
+</div>
+
+<!-- Mermaid 初始化 -->
+<script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose',
+        flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+        sequence: { useMaxWidth: true, showSequenceNumbers: false }
+    });
+</script>
+
+</body>
+</html>
